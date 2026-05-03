@@ -25,6 +25,12 @@ REQUIRED = [
     "PyMuPDF",
     "Pillow",
 ]
+# ✅ Python 3.14 Render fix (local Python 3.11/3.12 এ কোনো প্রভাব নেই)
+import asyncio
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
 try:
     import telegram, reportlab, fitz, PIL
 except ImportError:
