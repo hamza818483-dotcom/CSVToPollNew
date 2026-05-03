@@ -1,0 +1,6 @@
+data/
+fonts/
+temp/
+__pycache__/
+*.pyc
+*.log
