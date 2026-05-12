@@ -83,8 +83,12 @@
                 <h3 class="font-black text-blue-800 uppercase italic mb-4">Course Manager</h3>
                 <input id="cName" placeholder="Course Name" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold">
                 <input id="cLink" placeholder="Course Landing Page Link" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold">
-                <button onclick="saveCourse()" class="w-full bg-blue-800 text-white py-5 rounded-3xl font-black uppercase">Add Course</button>
-                <div id="courseList" class="mt-6 space-y-2"></div>
+                <button id="addCourseBtn" onclick="saveCourse()" class="w-full bg-blue-800 text-white py-5 rounded-3xl font-black uppercase">Add Course</button>
+                
+                <div class="mt-8">
+                    <h4 class="font-bold text-gray-500 mb-3 text-sm">Added Courses</h4>
+                    <div id="courseList" class="space-y-2"></div>
+                </div>
             </div>
 
             <div id="button_tab" class="tab-content bg-white p-8 rounded-[3rem] shadow-sm space-y-4">
@@ -202,31 +206,64 @@
             }
         }
 
+        // --- ADVANCED ERROR HANDLING ADDED ---
         async function saveCourse() {
-            const cNameVal = document.getElementById('cName').value;
-            const cLinkVal = document.getElementById('cLink').value;
-            
-            if(!cNameVal || !cLinkVal) {
-                return alert("Course Name and Link are required!");
-            }
+            try {
+                const cNameVal = document.getElementById('cName').value;
+                const cLinkVal = document.getElementById('cLink').value;
+                
+                if(!cNameVal || !cLinkVal) {
+                    alert("⚠️ Course Name ebong Link dutoi dite hobe!");
+                    return;
+                }
 
-            const { error } = await atlas.from('courses').insert([{ name: cNameVal, link: cLinkVal }]);
-            if(!error) { 
-                alert("✅ Course Added!"); 
-                document.getElementById('cName').value = '';
-                document.getElementById('cLink').value = '';
-                loadCourses(); 
-            } else {
-                alert("❌ Error adding course: " + error.message);
+                const btn = document.getElementById('addCourseBtn');
+                const originalText = btn.innerText;
+                btn.innerText = "ADDING COURSE...";
+                btn.disabled = true;
+
+                // .select() babohar kora hoyeche jate return data ashe
+                const { data, error } = await atlas.from('courses').insert([{ name: cNameVal, link: cLinkVal }]).select();
+
+                btn.innerText = originalText;
+                btn.disabled = false;
+
+                if(error) {
+                    console.error("Supabase Error Details:", error);
+                    alert("❌ Database Error!\n\nMessage: " + error.message + "\nDetails: " + (error.details || 'N/A') + "\nHint: " + (error.hint || 'Check RLS Policy or Table Columns'));
+                } else {
+                    alert("✅ Course Added Successfully!"); 
+                    document.getElementById('cName').value = '';
+                    document.getElementById('cLink').value = '';
+                    loadCourses(); 
+                }
+            } catch (err) {
+                console.error("JavaScript Error:", err);
+                alert("❌ System Error: " + err.message);
             }
         }
 
         async function loadCourses() {
-            const { data } = await atlas.from('courses').select('*');
-            if(data) {
+            const { data } = await atlas.from('courses').select('*').order('id', {ascending: false});
+            if(data && data.length > 0) {
                 document.getElementById('courseList').innerHTML = data.map(c => `
-                    <div class="list-item" style="background:#eff6ff">${c.name}</div>
+                    <div class="list-item flex justify-between items-center" style="background:#eff6ff">
+                        <div class="text-left">
+                            <div class="text-sm font-black text-blue-900">${c.name}</div>
+                            <div class="text-[10px] text-blue-500 mt-1">🔗 ${c.link}</div>
+                        </div>
+                        <button onclick="deleteCourse('${c.id}')" class="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-[10px] font-bold">Delete</button>
+                    </div>
                 `).join('');
+            } else {
+                document.getElementById('courseList').innerHTML = `<div class="text-xs text-gray-400 font-bold text-center py-4">No courses added yet.</div>`;
+            }
+        }
+
+        async function deleteCourse(id) {
+            if(confirm("Are you sure you want to delete this course?")) {
+                await atlas.from('courses').delete().eq('id', id);
+                loadCourses(); 
             }
         }
     </script>
