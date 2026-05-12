@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATLAS | Master Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap');
+        body { font-family: 'Hind Siliguri', sans-serif; background-color: #f3f7fa; }
+        .grid-card { background: white; padding: 30px; border-radius: 40px; box-shadow: 0 10px 25px rgba(0,0,0,0.03); text-align: center; cursor: pointer; transition: 0.3s; border: 2px solid transparent; }
+        .grid-card:hover { border-color: #1e40af; transform: translateY(-5px); }
+        .tab-content { display: none; }
+        .active-tab { display: block; }
+        /* লিস্ট দেখানোর জন্য বাড়তি স্টাইল */
+        .list-item { background: #fff; padding: 12px; border-radius: 15px; border-left: 4px solid #1e40af; margin-bottom: 8px; font-size: 11px; font-weight: bold; }
+    </style>
+</head>
+<body class="pb-20">
+
+    <div id="loginArea" class="flex items-center justify-center min-h-screen p-6">
+        <div class="bg-white p-10 rounded-[3.5rem] shadow-2xl w-full max-w-md text-center">
+            <div class="mb-8" onclick="location.reload()">
+                <span class="text-4xl font-black text-blue-800 italic tracking-tighter">ATLAS</span>
+            </div>
+            <input type="tel" id="admPhone" class="w-full p-5 bg-gray-50 rounded-3xl mb-4 border-none text-center font-bold" placeholder="Admin Phone">
+            <input type="password" id="admPass" class="w-full p-5 bg-gray-50 rounded-3xl mb-6 border-none text-center font-bold" placeholder="Password">
+            <button onclick="checkAdmin()" class="w-full bg-blue-800 text-white py-5 rounded-[2.5rem] font-black shadow-xl uppercase tracking-widest">Login to Dashboard</button>
+        </div>
+    </div>
+
+    <div id="dashboard" class="hidden">
+        <nav class="bg-white p-5 shadow-sm flex justify-between items-center sticky top-0 z-[100]">
+            <div class="flex items-center space-x-2 cursor-pointer" onclick="showDashboard()">
+                <div class="w-10 h-10 bg-blue-800 rounded-xl flex items-center justify-center text-white font-black italic">A</div>
+                <span class="font-black text-blue-900 italic uppercase">ATLAS BOSS</span>
+            </div>
+            <button onclick="logout()" class="text-red-500 font-bold text-[10px] bg-red-50 px-4 py-2 rounded-full uppercase">Logout</button>
+        </nav>
+
+        <div id="gridArea" class="p-6 grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div onclick="location.href='add-exam.html'" class="grid-card">
+                <div class="text-4xl mb-3">📝</div><p class="text-xs font-black uppercase text-gray-600">Add Exam</p>
+            </div>
+            <div onclick="location.href='add-class.html'" class="grid-card">
+                <div class="text-4xl mb-3">📺</div><p class="text-xs font-black uppercase text-gray-600">Add Class</p>
+            </div>
+            <div onclick="showTab('review_tab')" class="grid-card">
+                <div class="text-4xl mb-3">⭐</div><p class="text-xs font-black uppercase text-gray-600">Reviews</p>
+            </div>
+            <div onclick="showTab('course_tab')" class="grid-card">
+                <div class="text-4xl mb-3">🎓</div><p class="text-xs font-black uppercase text-gray-600">All Courses</p>
+            </div>
+            <div onclick="showTab('student_tab')" class="grid-card">
+                <div class="text-4xl mb-3">👥</div><p class="text-xs font-black uppercase text-gray-600">Students</p>
+            </div>
+            <div onclick="showTab('button_tab')" class="grid-card">
+                <div class="text-4xl mb-3">➕</div><p class="text-xs font-black uppercase text-gray-600">New Button</p>
+            </div>
+        </div>
+
+        <div class="p-6 max-w-4xl mx-auto">
+            
+            <div id="review_tab" class="tab-content bg-white p-8 rounded-[3rem] shadow-sm space-y-4">
+                <h3 class="font-black text-blue-800 uppercase italic mb-4">Add Student Review</h3>
+                <select id="revCat" class="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none">
+                    <option value="Class">Class Review</option>
+                    <option value="Exam">Exam Review</option>
+                    <option value="Mentoring">Mentoring Review</option>
+                    <option value="Service">Course Service</option>
+                </select>
+                <input id="revName" placeholder="Student Name" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold">
+                <textarea id="revText" placeholder="Review Text..." class="w-full p-4 bg-gray-50 rounded-2xl border-none h-24 font-bold"></textarea>
+                <div class="border-2 border-dashed p-6 rounded-3xl text-center">
+                    <p class="text-[10px] font-bold text-gray-400 mb-2 uppercase">Upload Student Photo</p>
+                    <input type="file" id="revFile" accept="image/*" class="text-xs">
+                </div>
+                <button onclick="uploadReview()" id="revBtn" class="w-full bg-blue-800 text-white py-5 rounded-3xl font-black uppercase tracking-widest shadow-xl">Publish Review</button>
+            </div>
+
+            <div id="course_tab" class="tab-content bg-white p-8 rounded-[3rem] shadow-sm space-y-4">
+                <h3 class="font-black text-blue-800 uppercase italic mb-4">Course Manager</h3>
+                <input id="cName" placeholder="Course Name" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold">
+                <input id="cLink" placeholder="Course Landing Page Link" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold">
+                <button onclick="saveCourse()" class="w-full bg-blue-800 text-white py-5 rounded-3xl font-black uppercase">Add Course</button>
+                <div id="courseList" class="mt-6 space-y-2"></div>
+            </div>
+
+            <div id="button_tab" class="tab-content bg-white p-8 rounded-[3rem] shadow-sm space-y-4">
+                <h3 class="font-black text-blue-800 uppercase italic mb-4">Add Home Page Button</h3>
+                <input id="btnName" placeholder="Button Label" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold">
+                <input id="btnLink" placeholder="URL / Link" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold">
+                <input id="btnIcon" placeholder="Icon Emoji" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold">
+                <button onclick="saveNewBtn()" class="w-full bg-blue-800 text-white py-5 rounded-3xl font-black uppercase">Add to Home</button>
+            </div>
+
+            <div id="student_tab" class="tab-content bg-white p-8 rounded-[3rem] shadow-sm">
+                <h3 class="font-black text-blue-800 uppercase italic mb-6">Registered Students</h3>
+                <div id="studentDisplay" class="space-y-3"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://gdmhswxnlhvtyfxaevnt.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdkbWhzd3hubGh2dHlmeGFldm50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjQyMTQsImV4cCI6MjA5MzIwMDIxNH0.0vDkuK0s6dIYWsgPmvfXXPyalpHNqkm3J--kbhck2PI';
+        const atlas = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        window.onload = () => {
+            if(localStorage.getItem('atlas_logged') === 'true') loginOk();
+        };
+
+        async function checkAdmin() {
+            const p = document.getElementById('admPhone').value;
+            const s = document.getElementById('admPass').value;
+            if(p === "01754365403" && s === "atlas2026") {
+                localStorage.setItem('atlas_logged', 'true');
+                loginOk();
+            } else { alert("Wrong Credentials!"); }
+        }
+
+        function loginOk() {
+            document.getElementById('loginArea').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            loadStudents(); loadCourses();
+        }
+
+        function logout() { localStorage.removeItem('atlas_logged'); location.reload(); }
+
+        function showTab(id) {
+            document.getElementById('gridArea').classList.add('hidden');
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active-tab'));
+            document.getElementById(id).classList.add('active-tab');
+        }
+
+        function showDashboard() {
+            document.getElementById('gridArea').classList.remove('hidden');
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active-tab'));
+        }
+
+        // --- FIXED PHOTO UPLOAD ---
+        async function uploadReview() {
+            const btn = document.getElementById('revBtn');
+            const fileInput = document.getElementById('revFile');
+            const file = fileInput.files[0];
+            if(!file) return alert("Select Student Photo!");
+            
+            btn.innerText = "UPDATING...";
+            btn.disabled = true;
+
+            const fileName = Date.now() + "_" + file.name;
+
+            try {
+                // 1. Upload photo
+                const { data: uploadData, error: upError } = await atlas.storage
+                    .from('review-photos')
+                    .upload(fileName, file);
+
+                if(upError) throw upError;
+
+                // 2. Get Public URL
+                const { data: urlData } = atlas.storage.from('review-photos').getPublicUrl(fileName);
+                const photoUrl = urlData.publicUrl;
+
+                // 3. Insert to DB
+                const { error: dbError } = await atlas.from('reviews').insert([{
+                    category: revCat.value, 
+                    student_name: revName.value, 
+                    comment: revText.value, 
+                    photo_url: photoUrl
+                }]);
+
+                if(dbError) throw dbError;
+
+                alert("Review Published!");
+                location.reload();
+            } catch (err) {
+                alert("Error: " + err.message);
+                btn.innerText = "Publish Review";
+                btn.disabled = false;
+            }
+        }
+
+        async function saveNewBtn() {
+            const { error } = await atlas.from('home_buttons').insert([{
+                name: btnName.value, link: btnLink.value, icon: btnIcon.value
+            }]);
+            if(!error) alert("Button Added!");
+        }
+
+        async function loadStudents() {
+            const { data } = await atlas.from('students').select('*').order('created_at', {ascending: false});
+            if(data) {
+                document.getElementById('studentDisplay').innerHTML = data.map(s => `
+                    <div class="list-item">
+                        <span>${s.name} (${s.whatsapp})</span>
+                        <span style="color:#1e40af; float:right;">${s.college || 'N/A'}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        async function saveCourse() {
+            const cNameVal = document.getElementById('cName').value;
+            const cLinkVal = document.getElementById('cLink').value;
+            
+            if(!cNameVal || !cLinkVal) {
+                return alert("Course Name and Link are required!");
+            }
+
+            const { error } = await atlas.from('courses').insert([{ name: cNameVal, link: cLinkVal }]);
+            if(!error) { 
+                alert("✅ Course Added!"); 
+                document.getElementById('cName').value = '';
+                document.getElementById('cLink').value = '';
+                loadCourses(); 
+            } else {
+                alert("❌ Error adding course: " + error.message);
+            }
+        }
+
+        async function loadCourses() {
+            const { data } = await atlas.from('courses').select('*');
+            if(data) {
+                document.getElementById('courseList').innerHTML = data.map(c => `
+                    <div class="list-item" style="background:#eff6ff">${c.name}</div>
+                `).join('');
+            }
+        }
+    </script>
+</body>
+</html>
