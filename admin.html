@@ -81,8 +81,26 @@
 
             <div id="course_tab" class="tab-content bg-white p-8 rounded-[3rem] shadow-sm space-y-4">
                 <h3 class="font-black text-blue-800 uppercase italic mb-4">Course Manager</h3>
-                <input id="cName" placeholder="Course Name" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold">
-                <input id="cLink" placeholder="Course Landing Page Link" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold">
+                
+                <input id="cName" placeholder="Course Name" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold mb-2">
+                
+                <select id="cCategory" class="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none mb-2">
+                    <option value="Medical">Medical (মেডিকেল)</option>
+                    <option value="Varsity">Varsity (ভার্সিটি)</option>
+                    <option value="HSC">HSC (এইচএসসি)</option>
+                    <option value="English">English (ইংরেজি)</option>
+                </select>
+                
+                <input id="cDetails" placeholder="লিংক: 'বিস্তারিত' বাটনের জন্য" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold mb-2">
+                <input id="cEnroll" placeholder="লিংক: 'ভর্তি হই' বাটনের জন্য" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold mb-2">
+                
+                <div class="border-2 border-dashed p-6 rounded-3xl text-center mb-2">
+                    <p class="text-[10px] font-bold text-gray-400 mb-2 uppercase">Attach Course Image</p>
+                    <input type="file" id="cImgFile" accept="image/*" class="text-xs">
+                </div>
+
+                <input id="cLink" placeholder="Legacy Course Link (Optional)" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold mb-4" style="display: none;">
+                
                 <button id="addCourseBtn" onclick="saveCourse()" class="w-full bg-blue-800 text-white py-5 rounded-3xl font-black uppercase">Add Course</button>
                 
                 <div class="mt-8">
@@ -206,16 +224,18 @@
             }
         }
 
-        // --- SUPER SAFE SAVE FUNCTION ---
+        // --- SUPER SAFE SAVE FUNCTION (MODIFIED FOR NEW FEATURES) ---
         async function saveCourse() {
             try {
-                console.log("Button Clicked!"); 
-
                 const cNameVal = document.getElementById('cName').value;
-                const cLinkVal = document.getElementById('cLink').value;
+                const cCatVal = document.getElementById('cCategory').value;
+                const cDetailsVal = document.getElementById('cDetails').value;
+                const cEnrollVal = document.getElementById('cEnroll').value;
+                const imageFile = document.getElementById('cImgFile').files[0];
+                const cLinkVal = document.getElementById('cLink').value || cDetailsVal; // Old fallback
                 
-                if(!cNameVal || !cLinkVal) {
-                    alert("⚠️ Course Name এবং Link দুটোই দিতে হবে!");
+                if(!cNameVal || !cDetailsVal || !cEnrollVal) {
+                    alert("⚠️ Course Name, বিস্তারিত লিংক এবং ভর্তি লিংক দিতে হবে!");
                     return;
                 }
 
@@ -223,26 +243,47 @@
                 btn.innerText = "অপেক্ষা করুন...";
                 btn.disabled = true;
 
+                let photoUrl = "";
+                // If user selected an image, upload it to the existing 'review-photos' bucket to prevent bucket errors
+                if(imageFile) {
+                    const fileName = "course_" + Date.now() + "_" + imageFile.name;
+                    const { data: uploadData, error: upError } = await atlas.storage.from('review-photos').upload(fileName, imageFile);
+                    if(upError) throw upError;
+                    const { data: urlData } = atlas.storage.from('review-photos').getPublicUrl(fileName);
+                    photoUrl = urlData.publicUrl;
+                }
+
                 // ডাটাবেসে পুশ করা
-                const { data, error } = await atlas.from('courses').insert([{ name: cNameVal, link: cLinkVal }]).select();
+                const { data, error } = await atlas.from('courses').insert([{ 
+                    name: cNameVal, 
+                    link: cLinkVal, // Keeping original parameter
+                    category: cCatVal,
+                    details_link: cDetailsVal,
+                    enroll_link: cEnrollVal,
+                    image_url: photoUrl
+                }]).select();
 
                 btn.innerText = "Add Course";
                 btn.disabled = false;
 
                 if(error) {
-                    alert("❌ ডাটাবেস এরর:\n" + error.message);
+                    alert("❌ ডাটাবেস এরর:\n" + error.message + "\n\n(Supabase এ category, details_link, enroll_link, image_url কলামগুলো Add করেছেন তো?)");
                 } else {
                     alert("✅ Course সফলভাবে যুক্ত হয়েছে!"); 
                     document.getElementById('cName').value = '';
-                    document.getElementById('cLink').value = '';
+                    document.getElementById('cDetails').value = '';
+                    document.getElementById('cEnroll').value = '';
+                    document.getElementById('cImgFile').value = '';
                     loadCourses(); 
                 }
             } catch (err) {
                 alert("❌ System Error: " + err.message);
+                document.getElementById('addCourseBtn').innerText = "Add Course";
+                document.getElementById('addCourseBtn').disabled = false;
             }
         }
 
-        // --- SAFE LOAD FUNCTION ---
+        // --- SAFE LOAD FUNCTION (MODIFIED FOR NEW LOOK) ---
         async function loadCourses() {
             try {
                 const { data, error } = await atlas.from('courses').select('*');
@@ -253,14 +294,20 @@
                 }
 
                 if(data && data.length > 0) {
-                    // Sorting locally to prevent crashes if 'id' or 'created_at' column is missing
                     const sortedData = data.sort((a, b) => (b.id || 0) - (a.id || 0));
                     
                     document.getElementById('courseList').innerHTML = sortedData.map(c => `
                         <div class="list-item flex justify-between items-center" style="background:#eff6ff">
-                            <div class="text-left">
-                                <div class="text-sm font-black text-blue-900">${c.name}</div>
-                                <div class="text-[10px] text-blue-500 mt-1">🔗 ${c.link}</div>
+                            <div class="flex gap-3 items-center text-left w-full">
+                                ${c.image_url ? `<img src="${c.image_url}" class="w-10 h-10 rounded-lg object-cover shadow-sm">` : `<div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-xl shadow-sm">🎓</div>`}
+                                
+                                <div class="flex-1">
+                                    <div class="text-sm font-black text-blue-900">${c.name} <span class="bg-blue-200 text-blue-800 text-[8px] px-2 py-0.5 rounded-full ml-1">${c.category || 'N/A'}</span></div>
+                                    <div class="text-[9px] text-gray-500 mt-1 font-bold">
+                                        <a href="${c.details_link || '#'}" target="_blank" class="text-blue-500 mr-2">📄 বিস্তারিত</a>
+                                        <a href="${c.enroll_link || '#'}" target="_blank" class="text-green-600">🚀 ভর্তি</a>
+                                    </div>
+                                </div>
                             </div>
                             <button onclick="deleteCourse('${c.name}')" class="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-[10px] font-bold">Delete</button>
                         </div>
