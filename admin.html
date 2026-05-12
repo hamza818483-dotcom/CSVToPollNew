@@ -206,63 +206,76 @@
             }
         }
 
-        // --- ADVANCED ERROR HANDLING ADDED ---
+        // --- SUPER SAFE SAVE FUNCTION ---
         async function saveCourse() {
             try {
+                console.log("Button Clicked!"); 
+
                 const cNameVal = document.getElementById('cName').value;
                 const cLinkVal = document.getElementById('cLink').value;
                 
                 if(!cNameVal || !cLinkVal) {
-                    alert("⚠️ Course Name ebong Link dutoi dite hobe!");
+                    alert("⚠️ Course Name এবং Link দুটোই দিতে হবে!");
                     return;
                 }
 
                 const btn = document.getElementById('addCourseBtn');
-                const originalText = btn.innerText;
-                btn.innerText = "ADDING COURSE...";
+                btn.innerText = "অপেক্ষা করুন...";
                 btn.disabled = true;
 
-                // .select() babohar kora hoyeche jate return data ashe
+                // ডাটাবেসে পুশ করা
                 const { data, error } = await atlas.from('courses').insert([{ name: cNameVal, link: cLinkVal }]).select();
 
-                btn.innerText = originalText;
+                btn.innerText = "Add Course";
                 btn.disabled = false;
 
                 if(error) {
-                    console.error("Supabase Error Details:", error);
-                    alert("❌ Database Error!\n\nMessage: " + error.message + "\nDetails: " + (error.details || 'N/A') + "\nHint: " + (error.hint || 'Check RLS Policy or Table Columns'));
+                    alert("❌ ডাটাবেস এরর:\n" + error.message);
                 } else {
-                    alert("✅ Course Added Successfully!"); 
+                    alert("✅ Course সফলভাবে যুক্ত হয়েছে!"); 
                     document.getElementById('cName').value = '';
                     document.getElementById('cLink').value = '';
                     loadCourses(); 
                 }
             } catch (err) {
-                console.error("JavaScript Error:", err);
                 alert("❌ System Error: " + err.message);
             }
         }
 
+        // --- SAFE LOAD FUNCTION ---
         async function loadCourses() {
-            const { data } = await atlas.from('courses').select('*').order('id', {ascending: false});
-            if(data && data.length > 0) {
-                document.getElementById('courseList').innerHTML = data.map(c => `
-                    <div class="list-item flex justify-between items-center" style="background:#eff6ff">
-                        <div class="text-left">
-                            <div class="text-sm font-black text-blue-900">${c.name}</div>
-                            <div class="text-[10px] text-blue-500 mt-1">🔗 ${c.link}</div>
+            try {
+                const { data, error } = await atlas.from('courses').select('*');
+                
+                if (error) {
+                    console.log("Load Course Error:", error);
+                    return;
+                }
+
+                if(data && data.length > 0) {
+                    // Sorting locally to prevent crashes if 'id' or 'created_at' column is missing
+                    const sortedData = data.sort((a, b) => (b.id || 0) - (a.id || 0));
+                    
+                    document.getElementById('courseList').innerHTML = sortedData.map(c => `
+                        <div class="list-item flex justify-between items-center" style="background:#eff6ff">
+                            <div class="text-left">
+                                <div class="text-sm font-black text-blue-900">${c.name}</div>
+                                <div class="text-[10px] text-blue-500 mt-1">🔗 ${c.link}</div>
+                            </div>
+                            <button onclick="deleteCourse('${c.name}')" class="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-[10px] font-bold">Delete</button>
                         </div>
-                        <button onclick="deleteCourse('${c.id}')" class="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-[10px] font-bold">Delete</button>
-                    </div>
-                `).join('');
-            } else {
-                document.getElementById('courseList').innerHTML = `<div class="text-xs text-gray-400 font-bold text-center py-4">No courses added yet.</div>`;
+                    `).join('');
+                } else {
+                    document.getElementById('courseList').innerHTML = `<div class="text-xs text-gray-400 font-bold text-center py-4">কোনো কোর্স নেই</div>`;
+                }
+            } catch(e) {
+                console.log("Error loading courses list:", e);
             }
         }
 
-        async function deleteCourse(id) {
+        async function deleteCourse(name) {
             if(confirm("Are you sure you want to delete this course?")) {
-                await atlas.from('courses').delete().eq('id', id);
+                await atlas.from('courses').delete().eq('name', name);
                 loadCourses(); 
             }
         }
